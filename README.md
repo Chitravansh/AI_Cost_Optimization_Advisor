@@ -57,10 +57,10 @@ No build steps needed. It runs as a pure static HTML page.
 
 ## ✨ Demo Screenshots
 
-![Demo Screenshot1](screenshots\Screenshot1.png)
-![Demo Screenshot2](screenshots\Screenshot2.png)
-![Demo Screenshot3](screenshots\Screenshot3.png)
-![Demo Screenshot4](screenshots\Screenshot4.png)
+![Demo Screenshot1](./screenshots/Screenshot1.png)
+![Demo Screenshot2](./screenshots/Screenshot2.png)
+![Demo Screenshot3](./screenshots/Screenshot3.png)
+![Demo Screenshot4](./screenshots/Screenshot4.png)
 
 
 ---
