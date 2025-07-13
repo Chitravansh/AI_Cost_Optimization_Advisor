@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Cost Optimization Advisor</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    body {
+      margin: 0; padding: 0;
+      background: linear-gradient(135deg, #4facfe, #00f2fe);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #333;
+      display: flex; justify-content: center; align-items: flex-start;
+      min-height: 100vh;
+    }
+    .container {
+      background: white; border-radius: 10px; padding: 30px;
+      margin-top: 40px; max-width: 800px; width: 95%;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+      position: relative;
+    }
+    h2 {
+      text-align: center; margin-bottom: 20px;
+      background: linear-gradient(to right, #00c6ff, #0072ff);
+      color: white; padding: 10px; border-radius: 8px;
+    }
+    input, button {
+      width: 100%; padding: 12px; margin: 10px 0;
+      border: 1px solid #ddd; border-radius: 6px; font-size: 16px;
+    }
+    button {
+      background: #0077b6; color: white; cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover { background: #023e8a; }
+    .loader {
+      border: 6px solid #f3f3f3; border-top: 6px solid #0077b6;
+      border-radius: 50%; width: 50px; height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto; display: none;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    table {
+      border-collapse: collapse; width: 100%; margin: 10px 0;
+    }
+    table, th, td {
+      border: 1px solid #ccc;
+    }
+    th, td {
+      padding: 8px; text-align: left;
+    }
+    ul {
+      margin: 10px 0 10px 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>💡 AI Cost Optimization Advisor</h2>
+    <input type="text" id="userInput" placeholder="Enter your enterprise task prompt here..." />
+    <button onclick="callAgent()">🔍 Analyze</button>
+    <div class="loader" id="loadingSpinner"></div>
+
+    <h3>📝 AI Analysis</h3>
+    <div id="conversationOutput"></div>
+
+    <h3>📊 ROI Comparison Chart</h3>
+    <canvas id="roiChart"></canvas>
+
+    <h3>💰 Model Cost Comparison Chart</h3>
+    <canvas id="costChart"></canvas>
+  </div>
+
+  <script>
+    function callAgent() {
+      const prompt = document.getElementById('userInput').value;
+      const outputElement = document.getElementById('conversationOutput');
+      const loader = document.getElementById('loadingSpinner');
+      outputElement.innerHTML = "";
+      loader.style.display = "block";
+
+      fetch('https://agent-prod.studio.lyzr.ai/v3/inference/chat/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': 'sk-default-K2cDqGDJlldDePiSbqytO1mLIZ5nzoCs'
+        },
+        body: JSON.stringify({
+          user_id: "chitravanshmohandevelops@gmail.com",
+          agent_id: "6873577b22419446ed84ac94",
+          session_id: "6873577b22419446ed84ac94-1oig5gaf4w",
+          message: prompt
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        loader.style.display = "none";
+        const agentResponse = data.response;
+
+        const parts = agentResponse.split('[JSON_OUTPUT_START]');
+        let conversationOutput = parts[0].trim();
+
+        // Remove unwanted headings and stray 🔷 symbols
+        conversationOutput = conversationOutput
+          .replace(/🔷/g, '')
+          .replace(/Part 1\. Human-readable Analysis/gi, '')
+          .replace(/Part 2\. Structured JSON Output/gi, '')
+          .replace(/###/g, '')
+          .replace(/####/g, '')
+          .trim();
+
+        // Convert ROI Estimation bullet points to HTML <ul><li></li></ul>
+        conversationOutput = convertRoiToList(conversationOutput);
+
+        // Convert plain text tables to HTML tables
+        conversationOutput = convertTablesToHtml(conversationOutput);
+
+        // Render markdown to HTML
+        outputElement.innerHTML = marked.parse(conversationOutput);
+
+        // Parse JSON data for charts
+        if (parts.length > 1) {
+          try {
+            const jsonRaw = parts[1].trim();
+            const jsonStartIndex = jsonRaw.indexOf('{');
+            const jsonEndIndex = jsonRaw.lastIndexOf('}');
+            const cleanJson = jsonRaw.slice(jsonStartIndex, jsonEndIndex + 1);
+            const jsonData = JSON.parse(cleanJson);
+
+            // ROI Chart
+            const roiCtx = document.getElementById('roiChart').getContext('2d');
+            new Chart(roiCtx, {
+              type: 'bar',
+              data: {
+                labels: ['Monthly Cost', 'Net Monthly Savings'],
+                datasets: [{
+                  label: 'USD',
+                  data: [
+                    jsonData.estimated_roi.total_monthly_cost_usd,
+                    jsonData.estimated_roi.net_monthly_savings_usd
+                  ],
+                  backgroundColor: ['#f39c12', '#27ae60']
+                }]
+              },
+              options: {
+                responsive: true,
+                plugins: { title: { display: true, text: 'ROI Comparison' } }
+              }
+            });
+
+            // Model Cost Comparison Chart
+            const modelLabels = jsonData.cost_per_agent_action.map(m => m.model);
+            const modelCosts = jsonData.cost_per_agent_action.map(m => m.monthly_cost_usd);
+
+            const costCtx = document.getElementById('costChart').getContext('2d');
+            new Chart(costCtx, {
+              type: 'bar',
+              data: {
+                labels: modelLabels,
+                datasets: [{
+                  label: 'Monthly Cost (USD)',
+                  data: modelCosts,
+                  backgroundColor: '#2980b9'
+                }]
+              },
+              options: {
+                responsive: true,
+                plugins: { title: { display: true, text: 'Model Monthly Cost Comparison' } }
+              }
+            });
+
+          } catch (error) {
+            console.error("Error parsing JSON:", error);
+          }
+        }
+      })
+      .catch(error => {
+        loader.style.display = "none";
+        console.error('Error calling agent API:', error);
+        outputElement.innerHTML = "❌ Error calling agent API.";
+      });
+    }
+
+    function convertTablesToHtml(text) {
+      const tableRegex = /((?:\|.*\n)+)/g;
+      return text.replace(tableRegex, match => {
+        const rows = match.trim().split('\n');
+        let html = '<table>';
+        rows.forEach((row, idx) => {
+          const cols = row.split('|').filter(col => col.trim() !== '');
+          if (cols.length === 0) return;
+          html += idx === 1 ? '' : (idx === 0 ? '<thead><tr>' : '<tr>');
+          cols.forEach(col => {
+            html += idx === 0 ? `<th>${col.trim()}</th>` : (idx === 1 ? '' : `<td>${col.trim()}</td>`);
+          });
+          html += idx === 0 ? '</tr></thead><tbody>' : (idx === 1 ? '' : '</tr>');
+        });
+        html += '</tbody></table>';
+        return html;
+      });
+    }
+
+    function convertRoiToList(text) {
+      const roiRegex = /ROI Estimation([\s\S]*?)(?=###|$)/i;
+      const match = text.match(roiRegex);
+      if (match) {
+        const items = match[1].trim().split('\n').filter(line => line.trim() !== '');
+        const listHtml = '<ul>' + items.map(item => `<li>${item.replace(/^- /, '').trim()}</li>`).join('') + '</ul>';
+        return text.replace(roiRegex, 'ROI Estimation\n' + listHtml);
+      }
+      return text;
+    }
+  </script>
+</body>
+</html>
